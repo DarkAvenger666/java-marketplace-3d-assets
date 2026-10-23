@@ -23,13 +23,14 @@ public class AssetController {
 
     @GetMapping
     public PagedResponse<AssetResponse> list(
+            @RequestParam(required = false) AssetType type,
             @PageableDefault(size = 12, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        return service.list(pageable);
+        return service.list(type, pageable);
     }
 
     @GetMapping("/{id}")
     public AssetResponse get(@PathVariable Long id) {
-        return AssetResponse.from(service.getEntity(id));
+        return AssetResponse.from(service.getApproved(id));
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -39,7 +40,7 @@ public class AssetController {
 
     @GetMapping("/{id}/preview")
     public ResponseEntity<Resource> preview(@PathVariable Long id) {
-        Asset asset = service.getEntity(id);
+        Asset asset = service.getApproved(id);
         if (asset.getPreviewFileName() == null) {
             return ResponseEntity.notFound().build();
         }
@@ -52,7 +53,7 @@ public class AssetController {
 
     @GetMapping("/{id}/download")
     public ResponseEntity<Resource> download(@PathVariable Long id) {
-        Asset asset = service.getEntity(id);
+        Asset asset = service.getApproved(id);
         Resource resource = storage.load(asset.getStoredFileName());
         ContentDisposition disposition = ContentDisposition.attachment()
                 .filename(asset.getOriginalFileName(), StandardCharsets.UTF_8)
@@ -61,5 +62,10 @@ public class AssetController {
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .body(resource);
+    }
+
+    @PatchMapping("/{id}/moderation")
+    public AssetResponse moderate(@PathVariable Long id, @Valid @RequestBody ModerationRequest req) {
+        return service.moderate(id, req.status());
     }
 }
