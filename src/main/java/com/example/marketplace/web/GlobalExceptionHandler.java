@@ -2,6 +2,7 @@ package com.example.marketplace.web;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -29,5 +30,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> tooLarge() {
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
                 .body(Map.of("message", "Файл слишком большой (максимум 200 МБ)"));
+    }
+
+    @ExceptionHandler({IllegalStateException.class, ObjectOptimisticLockingFailureException.class})
+    public ResponseEntity<Map<String, Object>> conflict(Exception e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("message", "Заявка уже обработана другим модератором"));
     }
 }

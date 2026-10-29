@@ -1,6 +1,9 @@
 package com.example.marketplace.asset;
 
+import com.example.marketplace.moderation.ModerationRequest;
+import com.example.marketplace.moderation.ModerationRequestRepository;
 import com.example.marketplace.storage.FileStorageService;
+import com.example.marketplace.user.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -18,24 +21,25 @@ public class AssetService {
     private static final Set<String> MODEL_FORMATS = Set.of("glb", "gltf", "fbx", "obj", "blend", "stl", "zip");
     private static final Set<String> IMAGE_FORMATS = Set.of("png", "jpg", "jpeg", "webp");
 
-    private final AssetRepository repository;
+    private final AssetRepository assetRepository;
     private final FileStorageService storage;
+    private final ModerationRequestRepository moderationRepository;
 
     @Transactional(readOnly = true)
     public PagedResponse<AssetResponse> list(Pageable pageable) {
-        return PagedResponse.from(repository.findAll(pageable).map(AssetResponse::from));
+        return PagedResponse.from(assetRepository.findAll(pageable).map(AssetResponse::from));
     }
 
     public PagedResponse<AssetResponse> list(AssetType type, Pageable pageable) {
         Page<Asset> page = (type == null)
-                ? repository.findByModerationStatus(ModerationStatus.APPROVED, pageable)
-                : repository.findByModerationStatusAndType(ModerationStatus.APPROVED, type, pageable);
+                ? assetRepository.findByModerationStatus(ModerationStatus.APPROVED, pageable)
+                : assetRepository.findByModerationStatusAndType(ModerationStatus.APPROVED, type, pageable);
         return PagedResponse.from(page.map(AssetResponse::from));
     }
 
     @Transactional(readOnly = true)
     public Asset getEntity(Long id) {
-        return repository.findById(id)
+        return assetRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ассет не найден"));
     }
 
@@ -49,7 +53,7 @@ public class AssetService {
     }
 
     @Transactional
-    public AssetResponse create(AssetUploadRequest req) {
+    public AssetResponse create(AssetUploadRequest req, User author) {
         if (req.file().isEmpty()) {
             throw new IllegalArgumentException("Файл модели пустой");
         }
@@ -61,16 +65,13 @@ public class AssetService {
         asset.setOriginalFileName(req.file().getOriginalFilename());
         asset.setFileSize(req.file().getSize());
         asset.setStoredFileName(storage.store(req.file(), MODEL_FORMATS));
+        asset.setAuthor(author);
+        asset.setModerationStatus(ModerationStatus.PENDING);
         if (req.preview() != null && !req.preview().isEmpty()) {
             asset.setPreviewFileName(storage.store(req.preview(), IMAGE_FORMATS));
         }
-        return AssetResponse.from(repository.save(asset));
-    }
-
-    @Transactional
-    public AssetResponse moderate(Long id, ModerationStatus status) {
-        Asset asset = getEntity(id);
-        asset.setModerationStatus(status);
-        return AssetResponse.from(asset);
+        Asset saved = assetRepository.save(asset);
+        moderationRepository.save(new ModerationRequest(saved));
+        return AssetResponse.from(saved);
     }
 }

@@ -1,21 +1,18 @@
 package com.example.marketplace.asset;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Table;
-import jakarta.persistence.Id;
-import jakarta.persistence.Column;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.EnumType;
+import com.example.marketplace.tag.Tag;
+import com.example.marketplace.user.User;
+import jakarta.persistence.*;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.BatchSize;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "assets")
@@ -55,6 +52,17 @@ public class Asset {
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "author_id")
+    private User author;
+
+    @ManyToMany
+    @JoinTable(name = "asset_tags",
+            joinColumns = @JoinColumn(name = "asset_id"),
+            inverseJoinColumns = @JoinColumn(name = "tag_id"))
+    @BatchSize(size = 50)
+    private Set<Tag> tags = new HashSet<>();
 
     @PrePersist
     void onCreate() {

@@ -63,9 +63,4 @@ public class AssetController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .body(resource);
     }
-
-    @PatchMapping("/{id}/moderation")
-    public AssetResponse moderate(@PathVariable Long id, @Valid @RequestBody ModerationRequest req) {
-        return service.moderate(id, req.status());
-    }
 }
